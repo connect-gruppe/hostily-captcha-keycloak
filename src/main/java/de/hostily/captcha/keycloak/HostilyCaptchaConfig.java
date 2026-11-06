@@ -11,8 +11,19 @@ public final class HostilyCaptchaConfig {
     public static final String SECRET = "secret";
     public static final String SERVICE_URL = "serviceUrl";
     public static final String MODE = "mode";
+    public static final String HOLD_TIME = "holdTime";
     public static final String LANGUAGE = "language";
     public static final String ON_ERROR = "onError";
+
+    /** Values of the mode setting. "visible" and "invisible" are the old values and stay valid; "portal" sends no attribute. */
+    public static final String MODE_PORTAL = "portal";
+    public static final String MODE_VISIBLE = "visible";
+    public static final String MODE_INVISIBLE = "invisible";
+    public static final String MODE_HOLD = "hold";
+    public static final String MODE_SLIDE = "slide";
+    public static final int HOLD_MIN = 800;
+    public static final int HOLD_MAX = 3000;
+    public static final int HOLD_DEFAULT = 1500;
 
     public static final String DEFAULT_SERVICE_URL = "https://captcha.hostily.de";
     /** If the secret field is empty, this environment variable is used (keeps the secret out of the realm export). */
@@ -21,7 +32,8 @@ public final class HostilyCaptchaConfig {
     private final String siteKey;
     private final String secret;
     private final String serviceUrl;
-    private final boolean invisible;
+    private final String mode;
+    private final int holdTime;
     private final String language;
     private final boolean blockOnError;
 
@@ -36,7 +48,19 @@ public final class HostilyCaptchaConfig {
         this.secret = s.isEmpty() ? trim(envSecret) : s;
         String u = trim(c.get(SERVICE_URL));
         this.serviceUrl = (u.isEmpty() ? DEFAULT_SERVICE_URL : u).replaceAll("/+$", "");
-        this.invisible = "invisible".equals(trim(c.get(MODE)));
+        String m = trim(c.get(MODE));
+        // unknown or empty value: "visible" as before (the default of existing installations)
+        this.mode = MODE_PORTAL.equals(m) || MODE_INVISIBLE.equals(m) || MODE_HOLD.equals(m) || MODE_SLIDE.equals(m) ? m : MODE_VISIBLE;
+        int h = HOLD_DEFAULT;
+        try {
+            String t = trim(c.get(HOLD_TIME));
+            if (!t.isEmpty()) {
+                h = Integer.parseInt(t);
+            }
+        } catch (NumberFormatException e) {
+            h = HOLD_DEFAULT;
+        }
+        this.holdTime = Math.max(HOLD_MIN, Math.min(HOLD_MAX, h));
         String l = trim(c.get(LANGUAGE));
         this.language = "de".equals(l) || "en".equals(l) ? l : "auto";
         this.blockOnError = "block".equals(trim(c.get(ON_ERROR)));
@@ -64,7 +88,33 @@ public final class HostilyCaptchaConfig {
     }
 
     public boolean isInvisible() {
-        return invisible;
+        return MODE_INVISIBLE.equals(mode);
+    }
+
+    /** One of portal, visible, invisible, hold, slide. */
+    public String getMode() {
+        return mode;
+    }
+
+    /** Value for {@code data-modus}; empty = leave the attribute out (the mode of the project in the customer portal applies). */
+    public String getWidgetMode() {
+        switch (mode) {
+            case MODE_PORTAL:
+                return "";
+            case MODE_INVISIBLE:
+                return "unsichtbar";
+            case MODE_HOLD:
+                return "halten";
+            case MODE_SLIDE:
+                return "schieben";
+            default:
+                return "sichtbar";
+        }
+    }
+
+    /** Hold time in ms (800 to 3000), only meaningful for the mode "hold". */
+    public int getHoldTime() {
+        return holdTime;
     }
 
     /** "de", "en" or "auto" (language of the page). */
@@ -85,8 +135,10 @@ public final class HostilyCaptchaConfig {
                 .type(ProviderConfigProperty.PASSWORD).secret(true).add()
             .property().name(SERVICE_URL).label("Service URL").helpText("Address of the service; the default is for captcha.hostily.de.")
                 .type(ProviderConfigProperty.STRING_TYPE).defaultValue(DEFAULT_SERVICE_URL).add()
-            .property().name(MODE).label("Mode").helpText("Visible: checkbox. Invisible: solves when the form is submitted.")
-                .type(ProviderConfigProperty.LIST_TYPE).options("visible", "invisible").defaultValue("visible").add()
+            .property().name(MODE).label("Mode").helpText("portal: as set for the project in the customer portal. visible: checkbox. invisible: solves when the form is submitted. hold: press and hold. slide: slider. Hold and slide offer a click-to-confirm alternative.")
+                .type(ProviderConfigProperty.LIST_TYPE).options(MODE_PORTAL, MODE_VISIBLE, MODE_INVISIBLE, MODE_HOLD, MODE_SLIDE).defaultValue(MODE_VISIBLE).add()
+            .property().name(HOLD_TIME).label("Hold time (ms)").helpText("Only for the mode hold: 800 to 3000, default 1500.")
+                .type(ProviderConfigProperty.STRING_TYPE).defaultValue(String.valueOf(HOLD_DEFAULT)).add()
             .property().name(LANGUAGE).label("Widget language").helpText("auto = language of the login page (de or en)")
                 .type(ProviderConfigProperty.LIST_TYPE).options("auto", "de", "en").defaultValue("auto").add()
             .property().name(ON_ERROR).label("If the service fails").helpText("pass: let the request through (default). block: reject it. Applies to a wrong secret, too; always logged.")

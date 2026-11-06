@@ -16,7 +16,7 @@ docker run --rm -v "$PWD/..":/src:ro -v "$M2":/root/.m2 -v "$PWD/dist":/out mave
   mkdir -p /w && cp -r /src/bibliotheken/java /w/lib && cp -r /src/keycloak /w/ext
   (cd /w/lib && mvn -q -B -DskipTests install >/dev/null)
   cd /w/ext && rm -rf dist target && mvn -B -Dkeycloak.version='"$KC"' package 2>&1 | grep -E "Tests run:|BUILD|ERROR\\]" 
-  cp target/hostily-captcha-keycloak-0.1.0.jar /out/
+  cp target/hostily-captcha-keycloak-0.2.0.jar /out/
 '
 J=$(ls dist/hostily-captcha-keycloak-*.jar | tail -1)
 echo "$J"

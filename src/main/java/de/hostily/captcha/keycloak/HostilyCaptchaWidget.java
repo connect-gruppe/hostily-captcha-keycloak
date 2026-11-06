@@ -32,7 +32,8 @@ final class HostilyCaptchaWidget {
         m.put("siteKey", cfg.getSiteKey());
         m.put("service", cfg.getServiceUrl());
         m.put("api", cfg.getServiceUrl() + "/api/");
-        m.put("mode", cfg.isInvisible() ? "unsichtbar" : "sichtbar");
+        m.put("mode", cfg.getWidgetMode());
+        m.put("holdTime", HostilyCaptchaConfig.MODE_HOLD.equals(cfg.getMode()) ? String.valueOf(cfg.getHoldTime()) : "");
         m.put("language", language(cfg, session));
         return m;
     }
@@ -45,10 +46,10 @@ final class HostilyCaptchaWidget {
     static String registrationScript(HostilyCaptchaConfig cfg, KeycloakSession session) {
         Map<String, Object> a = attributes(cfg, session);
         String js = "(function(){var c={k:" + quote(a.get("siteKey")) + ",s:" + quote(a.get("service")) + ",a:" + quote(a.get("api"))
-            + ",m:" + quote(a.get("mode")) + ",l:" + quote(a.get("language")) + "};"
+            + ",m:" + quote(a.get("mode")) + ",h:" + quote(a.get("holdTime")) + ",l:" + quote(a.get("language")) + "};"
             + "function go(){var f=document.getElementById('kc-register-form');if(!f||f.querySelector('hostily-captcha'))return;"
             + "var w=document.createElement('hostily-captcha');w.setAttribute('data-site-key',c.k);w.setAttribute('data-api',c.a);"
-            + "w.setAttribute('data-modus',c.m);if(c.l)w.setAttribute('data-sprache',c.l);"
+            + "if(c.m)w.setAttribute('data-modus',c.m);if(c.h)w.setAttribute('data-haltezeit',c.h);if(c.l)w.setAttribute('data-sprache',c.l);"
             + "w.style.display='block';w.style.margin='0 0 1rem';"
             + "var b=f.querySelector('#kc-form-buttons');if(b&&b.parentNode===f)f.insertBefore(w,b);else if(b)b.parentNode.insertBefore(w,b);else f.appendChild(w);"
             + "var s=document.createElement('script');s.src=c.s+'/widget/hostily-captcha.js';s.defer=true;document.head.appendChild(s);}"

@@ -6,7 +6,7 @@ import { chromium } from "playwright";
 import { mkdirSync, readFileSync } from "node:fs";
 
 const KC = process.env.KC_URL || "http://localhost:8080";
-const STUB = process.env.STUB_URL || "http://172.17.0.1:18176";
+const STUB = process.env.STUB_URL || "http://172.17.0.1:18203";
 const MODUS = process.env.MODUS || "attrappe";
 const AUFN = "/out/aufnahmen";
 mkdirSync(AUFN, { recursive: true });
@@ -190,6 +190,38 @@ if (MODUS === "attrappe") {
   ok(/bestätigen Sie, dass Sie kein Roboter sind/.test(await text(p)), "Schritt: Fehlermeldung deutsch");
   await p.screenshot({ path: `${AUFN}/schritt-deutsch.png` });
   await c.close();
+
+  // die fuenf Werte der Modus-Einstellung (Schritt) + Haltezeit
+  const erwartet = { portal: null, visible: "sichtbar", invisible: "unsichtbar", hold: "halten", slide: "schieben" };
+  for (const [wert, attr] of Object.entries(erwartet)) {
+    await einstellen({ ...SK, secret: "ok-secret", mode: wert, holdTime: "2200" });
+    [c, p] = await neu();
+    await p.goto(ANMELDEN);
+    const m = await p.locator("hostily-captcha").evaluate((e) => [e.getAttribute("data-modus"), e.getAttribute("data-haltezeit")]);
+    ok(m[0] === attr, "Schritt: Modus " + wert + " -> data-modus " + attr + " (" + m[0] + ")");
+    ok(m[1] === (wert === "hold" ? "2200" : null), "Schritt: Haltezeit nur bei hold (" + m[1] + ")");
+    await c.close();
+  }
+  // Haltezeit wird auf 800 bis 3000 begrenzt; unbekannter Modus faellt auf sichtbar
+  await einstellen({ ...SK, secret: "ok-secret", mode: "hold", holdTime: "50" });
+  [c, p] = await neu();
+  await p.goto(ANMELDEN);
+  ok((await p.locator("hostily-captcha").getAttribute("data-haltezeit")) === "800", "Schritt: Haltezeit nach unten begrenzt (800)");
+  await c.close();
+  await einstellen({ ...SK, secret: "ok-secret", mode: "gibtsnicht" });
+  [c, p] = await neu();
+  await p.goto(ANMELDEN);
+  ok((await p.locator("hostily-captcha").getAttribute("data-modus")) === "sichtbar", "Schritt: unbekannter Wert -> sichtbar");
+  await c.close();
+  // Registrierung: Attribute kommen ueber das eingefuegte Skript an
+  for (const [wert, attr] of [["portal", null], ["hold", "halten"], ["slide", "schieben"]]) {
+    await einstellen({ ...SK, secret: "ok-secret", mode: wert, holdTime: "2200" });
+    [c, p] = await neu();
+    await regSeite(p, eindeutig());
+    const r = await p.locator("hostily-captcha").evaluate((e) => [e.getAttribute("data-modus"), e.getAttribute("data-haltezeit")]);
+    ok(r[0] === attr && r[1] === (wert === "hold" ? "2200" : null), "Registrierung: Modus " + wert + " (" + r.join(", ") + ")");
+    await c.close();
+  }
 
   // ohne Konfiguration
   await einstellen({ siteKey: "", secret: "" });

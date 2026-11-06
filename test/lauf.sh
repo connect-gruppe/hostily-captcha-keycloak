@@ -1,7 +1,7 @@
 #!/bin/bash
 # Containertest der Keycloak-Erweiterung: offizielles Abbild quay.io/keycloak/keycloak:<Version> im Entwicklungsmodus (H2, keine
 # Datenbank noetig) mit dem Jar aus bauen.sh, danach browser.spec.mjs (Playwright) in zwei Durchgaengen:
-#   attrappe : Anmelde-Schritt + Registrierung gegen die Attrappe des Dienstes (stub-dienst.php, Port 18176)
+#   attrappe : Anmelde-Schritt + Registrierung gegen die Attrappe des Dienstes (stub-dienst.php, Port 18203)
 #   echt     : gegen das echte Pruefprojekt 19 (Secret aus /mnt/user/appdata/geheim/captcha19.secret, per Datei in den Container)
 #   flock /tmp/claude-0/ap-docker.lock integrationen/keycloak/test/lauf.sh [Keycloak-Version, Vorgabe 26.8.1] [alle|attrappe|echt] [behalten]
 # Raeumt Container samt Volumes auf. Das gezogene Keycloak-Abbild bleibt liegen, wenn es schon da war; sonst wird es am Ende entfernt
@@ -14,7 +14,7 @@ T="$(cd "$(dirname "$0")" && pwd)"
 V="${1:-26.8.1}"
 WAS="${2:-alle}"
 KC=w2-keycloak-app
-PORT=18176
+PORT=18203
 SECRET=/mnt/user/appdata/geheim/captcha19.secret
 IMG=quay.io/keycloak/keycloak:$V
 free -g | awk '/^Mem/ { if ($7 < 8) { print "zu wenig Speicher frei (" $7 " GB), abbrechen"; exit 1 } }'

@@ -2,8 +2,8 @@
 // Attrappe des Dienstes (Router fuer `php -S`): /api/v1/pruefen mit Verhalten je nach secret/response,
 // /_count und /_last fuer die Pruefungen der Anfragen, /_reset.
 $dir   = sys_get_temp_dir();   // Dateien je Port, damit sich parallele Tests nicht stoeren
-$count = $dir . '/hc-stub-18176-count';
-$last  = $dir . '/hc-stub-18176-last';
+$count = $dir . '/hc-stub-18203-count';
+$last  = $dir . '/hc-stub-18203-last';
 $path  = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
 header('Content-Type: application/json');

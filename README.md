@@ -1,6 +1,6 @@
 # hostily Captcha für Keycloak
 
-Erweiterung (ein Jar, Version 0.1.0, MIT) für [Keycloak](https://www.keycloak.org). Bindet den Spamschutz [hostily Captcha](https://captcha.hostily.de) ein:
+Erweiterung (ein Jar, Version 0.2.0, MIT) für [Keycloak](https://www.keycloak.org). Bindet den Spamschutz [hostily Captcha](https://captcha.hostily.de) ein:
 
 * **Authenticator „hostily Captcha“** für den Browser-Anmeldeablauf: eigene Seite mit dem Widget, die vor „Benutzername/Kennwort“ steht. Erst mit gültigem Token geht es weiter.
 * **Form Action „hostily Captcha“** für die Selbstregistrierung: das Widget steht im Registrierungsformular, das Token wird geprüft, bevor der Benutzer angelegt wird.
@@ -26,7 +26,7 @@ Was nicht im Container lief, ist nicht geprüft (insbesondere 26.0 bis 26.7 auß
 ## Einbau
 
 1. Im Dienst (captcha.hostily.de/verwaltung) ein Projekt anlegen; die **Domain, unter der Keycloak erreichbar ist**, in „erlaubte Domains“ eintragen.
-2. `hostily-captcha-keycloak-0.1.0.jar` in den Ordner `providers/` von Keycloak legen. Bei `start` (nicht `start-dev`) danach `kc.sh build` ausführen (Docker: `RUN /opt/keycloak/bin/kc.sh build` im eigenen Abbild, oder die Datei nach `/opt/keycloak/providers/` einbinden und `start-dev` benutzen). Keycloak neu starten.
+2. `hostily-captcha-keycloak-0.2.0.jar` in den Ordner `providers/` von Keycloak legen. Bei `start` (nicht `start-dev`) danach `kc.sh build` ausführen (Docker: `RUN /opt/keycloak/bin/kc.sh build` im eigenen Abbild, oder die Datei nach `/opt/keycloak/providers/` einbinden und `start-dev` benutzen). Keycloak neu starten.
 3. Verwaltungsoberfläche → *Authentication* → Ablauf „browser“ **duplizieren** (die eingebauten Abläufe sind nicht änderbar), z. B. „browser hostily“.
 4. Im Teilablauf „browser hostily **forms**“ (er enthält „Username Password Form“) → *Add step* → **hostily Captcha**, Requirement **Required**, mit dem Pfeil **ganz nach oben** schieben (vor „Username Password Form“), dann am Zahnrad die Einstellungen eintragen (siehe unten).
 5. *Action* → *Bind flow* → **Browser flow**. Fertig: Die Anmeldung zeigt zuerst die Sicherheitsprüfung.
@@ -41,7 +41,8 @@ Wer bereits angemeldet ist (Cookie-Schritt des Ablaufs) sieht die Prüfung nicht
 |---|---|
 | Site key / Secret | aus dem Projekt im Dienst. Das Secret bleibt auf dem Server (Passwortfeld, wird nie in HTML oder Protokoll geschrieben). Ist das Feld leer, gilt die Umgebungsvariable `HOSTILY_CAPTCHA_SECRET` (hält das Secret aus dem Realm-Export). |
 | Service URL | Vorgabe `https://captcha.hostily.de` (eigene Installation möglich) |
-| Mode | `visible` (Kästchen) oder `invisible` (löst beim Absenden) |
+| Mode | `visible` (Kästchen, Vorgabe), `invisible` (löst beim Absenden), `hold` (Taste gedrückt halten), `slide` (Schieberegler) oder `portal` („Wie im Kundenportal“: das Attribut `data-modus` entfällt, es gilt der Modus des Projekts im Portal). `hold` und `slide` bieten die Alternative „Lieber per Klick bestätigen“. Bestehende Konfigurationen mit `visible`/`invisible` bleiben unverändert |
+| Hold time (ms) | nur für `hold`: 800 bis 3000, Vorgabe 1500 (außerhalb des Bereichs wird begrenzt) |
 | Widget language | `auto` (Sprache der Anmeldeseite: de oder en, sonst entscheidet das Widget), `de`, `en` |
 | If the service fails | `pass` (durchlassen, Standard) oder `block` (ablehnen). Gilt auch bei falschem Secret; steht immer im Protokoll des Servers (`ERROR … hostily Captcha: …`) |
 
@@ -89,11 +90,11 @@ Den Schritt im Ablauf auf **Disabled** stellen oder das Site-key-Feld leeren: da
 ## Bauen und Tests
 
 `bauen.sh` (unter `flock /tmp/claude-0/ap-docker.lock`) baut im `maven`-Container (kein Java auf dem Host nötig): zuerst die Bibliothek (`mvn install`), dann die Erweiterung mit den Einheitstests (Entscheidungslogik gegen einen Test-Server),
-und legt `dist/hostily-captcha-keycloak-0.1.0.jar` sowie `dist/hostily-captcha-keycloak.zip` an; Letzteres wird nach `website/downloads/hostily-captcha-keycloak.zip` kopiert. `bauen.sh <Keycloak-Version>` kompiliert gegen eine andere API-Version.
+und legt `dist/hostily-captcha-keycloak-0.2.0.jar` sowie `dist/hostily-captcha-keycloak.zip` an; Letzteres wird nach `website/downloads/hostily-captcha-keycloak.zip` kopiert. `bauen.sh <Keycloak-Version>` kompiliert gegen eine andere API-Version.
 
 `test/lauf.sh [Version] [alle|attrappe|echt]` zieht `quay.io/keycloak/keycloak:<Version>` (Entwicklungsmodus, keine Datenbank) und lässt `test/browser.spec.mjs` (Playwright) laufen. Der Test legt per Admin-REST einen Realm mit den beiden Abläufen an und prüft:
 
-* **Durchgang „attrappe“** (`test/stub-dienst.php`, Port 18176): Anmelde-Schritt und Registrierung – ohne Token abgelehnt (der Dienst wird nicht gefragt), `good` angenommen, `used`/`spam`/`expired` abgelehnt mit Meldung, `http500`/`garbage`/`bad`/Dienst nicht erreichbar → durchlassen bzw. bei „block“ abgelehnt,
+* **Durchgang „attrappe“** (`test/stub-dienst.php`, Port 18203): Anmelde-Schritt und Registrierung – ohne Token abgelehnt (der Dienst wird nicht gefragt), `good` angenommen, `used`/`spam`/`expired` abgelehnt mit Meldung, `http500`/`garbage`/`bad`/Dienst nicht erreichbar → durchlassen bzw. bei „block“ abgelehnt,
   Inhalt geht ohne Kennwörter an den Dienst, Secret nicht im HTML, deutsche Texte, Modus unsichtbar, ohne Konfiguration keine Prüfung.
 * **Durchgang „echt“**: gegen das echte Prüfprojekt 19: Widget lösen, Anmeldung bzw. Registrierung kommt durch; ohne Token (Widget entfernt) abgelehnt; Modus unsichtbar. Aufnahmen: `test/aufnahmen/`.
 
@@ -101,8 +102,8 @@ und legt `dist/hostily-captcha-keycloak-0.1.0.jar` sowie `dist/hostily-captcha-k
 
 ## English
 
-hostily Captcha for Keycloak: one jar (0.1.0, MIT) with an **authenticator** for the browser login flow (a page with the widget before "Username Password Form") and a **form action** for self-registration (the widget sits in the registration form; the token is checked before the user is created).
-Settings per realm and flow through the step configuration. Template and messages (English, German) ship in the jar and work with every login theme; no custom theme needed. The Java library is shaded in.
+hostily Captcha for Keycloak: one jar (0.2.0, MIT) with an **authenticator** for the browser login flow (a page with the widget before "Username Password Form") and a **form action** for self-registration (the widget sits in the registration form; the token is checked before the user is created).
+Settings per realm and flow through the step configuration. Mode: `portal` (as set for the project in the customer portal, no `data-modus` attribute), `visible` (default; also what existing configurations keep), `invisible`, `hold` (press and hold; optional hold time 800-3000 ms), `slide` (slider); hold and slide offer a "confirm by click instead" button. Template and messages (English, German) ship in the jar and work with every login theme; no custom theme needed. The Java library is shaded in.
 
 Install: put the jar into `providers/` (run `kc.sh build` for `start`; `start-dev` builds by itself), restart. Admin console → Authentication: **duplicate** the "browser" flow, add the step **hostily Captcha** (Required) to its "forms" sub-flow, move it above "Username Password Form",
 enter site key and secret (the secret stays on the server; empty = environment variable `HOSTILY_CAPTCHA_SECRET`), bind the flow as Browser flow. For registration duplicate "registration", add **hostily Captcha** (form action, Required) to its "registration form" sub-flow, bind as Registration flow.

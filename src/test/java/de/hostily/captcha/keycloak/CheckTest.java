@@ -110,4 +110,39 @@ class CheckTest {
         assertTrue(js.contains("\"sk\""));
         assertFalse(js.contains("topsecret"));
     }
+
+    @Test
+    void modeSettingHasFiveValuesAndKeepsTheOldOnes() {
+        String[][] expected = {{"portal", ""}, {"visible", "sichtbar"}, {"invisible", "unsichtbar"}, {"hold", "halten"}, {"slide", "schieben"},
+            {"", "sichtbar"}, {"unknown", "sichtbar"}};
+        for (String[] e : expected) {
+            HostilyCaptchaConfig c = new HostilyCaptchaConfig(Map.of("siteKey", "sk", "secret", "s", "mode", e[0]), null);
+            assertEquals(e[1], c.getWidgetMode(), e[0]);
+            assertEquals(e[1], HostilyCaptchaWidget.attributes(c, null).get("mode"), e[0]);
+        }
+        assertEquals("sichtbar", new HostilyCaptchaConfig(Map.of(), null).getWidgetMode()); // no value saved: as before
+        assertTrue(new HostilyCaptchaConfig(Map.of("mode", "invisible"), null).isInvisible());
+    }
+
+    @Test
+    void holdTimeOnlyForHoldAndClamped() {
+        assertEquals("2200", HostilyCaptchaWidget.attributes(new HostilyCaptchaConfig(Map.of("mode", "hold", "holdTime", "2200"), null), null).get("holdTime"));
+        assertEquals("800", HostilyCaptchaWidget.attributes(new HostilyCaptchaConfig(Map.of("mode", "hold", "holdTime", "50"), null), null).get("holdTime"));
+        assertEquals("3000", HostilyCaptchaWidget.attributes(new HostilyCaptchaConfig(Map.of("mode", "hold", "holdTime", "99999"), null), null).get("holdTime"));
+        assertEquals("1500", HostilyCaptchaWidget.attributes(new HostilyCaptchaConfig(Map.of("mode", "hold", "holdTime", "abc"), null), null).get("holdTime"));
+        assertEquals("1500", HostilyCaptchaWidget.attributes(new HostilyCaptchaConfig(Map.of("mode", "hold"), null), null).get("holdTime"));
+        assertEquals("", HostilyCaptchaWidget.attributes(new HostilyCaptchaConfig(Map.of("mode", "slide", "holdTime", "2200"), null), null).get("holdTime"));
+    }
+
+    @Test
+    void registrationScriptSetsModeAttributes() {
+        String js = decode(HostilyCaptchaWidget.registrationScript(new HostilyCaptchaConfig(Map.of("siteKey", "sk", "mode", "hold", "holdTime", "2000"), null), null));
+        assertTrue(js.contains("m:\"halten\"") && js.contains("h:\"2000\"") && js.contains("data-haltezeit"));
+        String portal = decode(HostilyCaptchaWidget.registrationScript(new HostilyCaptchaConfig(Map.of("siteKey", "sk", "mode", "portal"), null), null));
+        assertTrue(portal.contains("m:\"\"") && portal.contains("if(c.m)w.setAttribute"));
+    }
+
+    private static String decode(String uri) {
+        return new String(java.util.Base64.getDecoder().decode(uri.substring(uri.indexOf(',') + 1)), StandardCharsets.UTF_8);
+    }
 }
